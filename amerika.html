@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<style>
+  .axis {
+    font: 10px sans-serif;
+  }
+
+  .axis path,
+  .axis line {
+    fill: none;
+    stroke: #000;
+    shape-rendering: crispEdges;
+  }
+
+  .axis {
+    font: 14px sans-serif;
+  }
+
+  .graphSvg {
+    transform: translate(950px, 100px);
+
+  }
+
+
+  .states :hover {
+    fill: red;
+  }
+
+  .states {
+    margin-top: 200px;
+    transform: translate(0px, 150px);
+  }
+
+  .legend {
+    color: #fff;
+    position: absolute;
+    top: 50px;
+    left: 170px
+  }
+
+  .state-borders {
+    fill: none;
+    stroke: #fff;
+    stroke-width: 0.5px;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    pointer-events: none;
+    transform: translate(0px, 150px);
+
+  }
+
+  .html {
+    overflow-y: scroll;
+    overflow-x: hidden;
+  }
+
+  .body {
+    overflow-y: scroll;
+    position: absolute;
+  }
+
+  .info {
+    font: Monaco;
+    font-size: 17px;
+  }
+
+
+  .svg {
+    position: relative;
+    float: left;
+  }
+</style>
+
+<head>
+  <svg width="1850" height="800"></svg>
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <script src="https://d3js.org/topojson.v2.min.js"></script>
+</head>
+
+<body>
+
+  <div>
+    <svg id="my_dataviz2" height=170 width=450 class="legend"></svg>
+  </div>
+
+
+  <script>
+
+    var margin = { top: 50, bottom: 70, left: 80, right: 20 };
+    var width1 = 960;
+    var height1 = 700;
+
+    var svg = d3.select("svg")
+
+    var legendTitle = "Broj oboljelih osoba na 100 000 stanovnika"
+
+
+    svg.append('text')
+      .attr("x", 230)
+      .attr("y", 85)
+      .attr("dy", ".25em")
+      .attr('font-family', 'sans-serif')
+      .attr("font-weight", "700")
+      .attr("font-size", "20px")
+      .text(legendTitle);
+
+    svg.append('text')
+      .attr("x", 540)
+      .attr("y", 30)
+      .attr("dy", ".25em")
+      .attr('font-family', 'sans-serif')
+      .attr("font-weight", "700")
+      .attr("font-size", "30px")
+      .text("Vizualizacija podataka slučajeva raka na 100 000 stanovnika u SAD-u");
+
+    var path = d3.geoPath();
+
+    var zoom = d3.zoom()
+      .scaleExtent([1, 10])
+      .on("zoom", zoomed);
+
+    let myScale = d3.scaleLinear()
+      .domain([300, 550])
+      .range([0, 6]);
+
+
+    var colors = ["#26ff00", "#30d413", "#35b51f", "#369925", "#368729", "#35702c", "#2f5c28"];
+
+    var legend = d3.select("#my_dataviz2");
+    var keys = ["300-335", "336-371", "372-407", "408-443", "444-489", "489-514", "514-550"]
+    var color = d3.scaleOrdinal()
+      .domain(keys)
+      .range(colors);
+
+
+
+    legend.selectAll("mydots")
+      .data(keys)
+      .enter()
+      .append("circle")
+      .attr("cx", function (d, i) { return 130 + i * 70 })
+      .attr("cy", 100) // 100 is where the first dot appears. 25 is the distance between dots
+      .attr("r", 10)
+      .style("fill", function (d) { return color(d) })
+
+
+
+    legend.selectAll("mylabels")
+      .data(keys)
+      .enter()
+      .append("text")
+      .attr("x", function (d, i) { return 100 + i * 70 })
+      .attr("y", 120) // 100 is where the first dot appears. 25 is the distance between dots
+      .style("fill", "black")
+      .text(function (d) { return d })
+      .attr("text-anchor", "left")
+      .style("font-size", "17px")
+      .style("alignment-baseline", "middle")
+
+
+
+    d3.select("body").append("div").attr("id", "info").attr("class", "info");
+    ;
+
+
+    d3.json("data.json", function (error, us) {
+      if (error) throw error;
+
+
+      svg.append("g")
+        .attr("class", "states")
+        .selectAll("path")
+        .data(topojson.feature(us, us.objects.states).features)
+        .enter().append("path")
+        .attr("d", path)
+        .style("fill", function (d) {
+          var value = Math.round(myScale(d.properties.br_oboljelih_100k));
+          return colors[value];
+        })
+
+        .on("mouseover", function (d) {
+          console.log(d.properties.name)
+        })
+        .on('click', d => {
+          const data = {
+            naziv_drzave: d.properties.name,
+            rak_prostate: d.properties.rak_prostate,
+            rak_dojke: d.properties.rak_dojke,
+            rak_koze: d.properties.rak_koze,
+            rak_bubrega: d.properties.rak_bubrega,
+            rak_pluca: d.properties.rak_pluca,
+          }
+          makeGraphs(data);
+        })
+
+
+
+      svg.append("path")
+        .attr("class", "state-borders")
+        .attr("d", path(topojson.mesh(us, us.objects.states, function (a, b) { return a !== b; })));
+
+    });
+
+    function zoomed() {
+      const currentTransform = d3.event.transform;
+    }
+
+    var graphSvg = d3.select("svg")
+      .append("g")
+      .attr("class", "graphSvg")
+      .attr("width", 1500 + margin.left + margin.right)
+      .attr("height", 1500 + margin.bottom + margin.top)
+      .style("background-color", "white")
+      .append("g")
+      .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+    let graphMade = false;
+
+
+    function makeGraphs(data1) {
+
+      if (graphMade) {
+        graphSvg.selectAll("*").remove();
+      }
+
+
+      var data = [
+        { "Vrsta": "Rak dojke", "Total": data1.rak_dojke },
+        { "Vrsta": "Rak prostate", "Total": data1.rak_prostate },
+        { "Vrsta": "Rak pluća", "Total": data1.rak_pluca },
+        { "Vrsta": "Rak bubrega", "Total": data1.rak_bubrega },
+        { "Vrsta": "Rak kože", "Total": data1.rak_koze }];
+
+
+      const margin = { top: 20, bottom: 70, left: 40, right: 20 };
+      const height = 670 - margin.top - margin.bottom
+      const width = 900 - margin.left - margin.right;
+      const barPadding = 4;
+      const barWidth = width / data.length - barPadding * 15;
+
+
+      const xBarchart = d3.scaleBand()
+        .domain(d3.range(data.length))
+        .rangeRound([0, width]);
+
+      const yBarchart = d3.scaleLinear()
+        .domain([0, d3.max(data, function (d) { return d.Total; })])
+        .range([height, 0]);
+
+      const xAxisBarchart = d3.axisBottom(xBarchart)
+        .tickFormat(function (d, i) { return data[i].Vrsta; });
+
+      const yAxisBarchart = d3.axisLeft(yBarchart)
+        .ticks(10);
+
+
+      graphSvg.append("g")
+        .attr("class", "x axis")
+        .attr("transform", "translate(0," + height + ")")
+        .call(xAxisBarchart)
+        .selectAll("text")
+        .style("text-anchor", "middle");
+
+
+      graphSvg.append("text")
+        .attr("x", (width / 2))
+        .attr("y", -60)
+        .attr("font-weight", "bold")
+        .style("font-size", "20px")
+        .attr('font-family', 'sans-serif')
+        .style("text-anchor", "middle")
+        .text("Broj slučajeva raka ovisno o vrsti");
+
+
+      graphSvg.append("g")
+        .attr("class", "y axis")
+        .call(yAxisBarchart)
+
+
+      graphSvg.append("text")
+        .attr("x", -(height / 2))
+        .attr("y", -((margin.left / 2) + 30))
+        .attr("transform", "rotate(-90)")
+        .attr("dy", "1em")
+        .style("text-anchor", "middlEe")
+        .style("font-size", "17px")
+        .attr('font-family', 'sans-serif')
+        .text("Broj oboljelih od raka");
+
+
+      graphSvg.append("text")
+        .attr("x", (width / 2) - 60)
+        .attr("y", (height + (margin.bottom / 2)))
+        .attr("dy", "1em")
+        .style("text-anchor", "middlEe")
+        .style("font-size", "17px")
+        .attr('font-family', 'sans-serif')
+        .text("Vrsta bolesti raka");
+
+
+
+
+
+
+      var barchart = graphSvg.selectAll("rect")
+        .data(data)
+        .enter()
+        .append("rect")
+        .attr("transform", "translate(30,0)")
+        .attr("x", function (d, i) { return xBarchart(i); })
+        .attr("y", function (d, i) { return yBarchart(d.Total); })
+        .attr("height", function (d) { return height - yBarchart(d.Total); })
+        .attr("width", barWidth)
+        .attr("fill", "navy");
+
+      graphMade = true;
+
+      d3.select("#info").html(`Savezna država: <b>${data1.naziv_drzave}</b> <br> Broj oboljelih od raka prostate:
+        <b>${data1.rak_prostate}</b> <br> Broj oboljelih od raka dojke: <b>${data1.rak_dojke}</b>
+        <br> Broj oboljelih od raka pluća: <b>${data1.rak_pluca}</b> <br> Broj oboljelih od raka bubrega: <b>${data1.rak_bubrega}</b> <br>
+        Broj oboljelih od raka kože: <b>${data1.rak_koze}</b>`);
+
+    }
+
+  </script>
+</body>
+
+</html>
